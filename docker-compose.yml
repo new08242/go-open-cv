@@ -1,0 +1,17 @@
+version : '3.7'
+services:
+  open-cv:
+    image: "gocv"
+
+    container_name: open-cv
+    ports:
+     - "8080:8080"
+    networks:
+     - open-cv
+    restart: always
+    tty: true
+    user: root
+
+networks:
+  open-cv:
+    name: open-cv
