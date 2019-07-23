@@ -65,8 +65,7 @@ RUN go get -u -d gocv.io/x/gocv && go run ${GOPATH}/src/gocv.io/x/gocv/cmd/versi
 
 WORKDIR $GOPATH
 
-RUN mkdir -p "$GOPATH/src/go-open-cv"
-COPY . $GOPATH/src/go-open-cv
+RUN mkdir -p "${GOPATH}/src/go-open-cv"
+COPY . ${GOPATH}/src/go-open-cv
 
-#RUN cd ${GOPATH}/src/go-open-cv && go build
-#RUN ${GOPATH}/src/go-open-cv/go-open-cv
+RUN cd ${GOPATH}/src/go-open-cv && go build
