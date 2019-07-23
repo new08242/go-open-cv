@@ -3,24 +3,27 @@ package facedetection
 import (
 	"image"
 	"fmt"
-	"errors"
 	"image/color"
+	"os"
+	"image/png"
+	"path"
 
 	"gocv.io/x/gocv"
 )
 
 type FaceDetector interface {
-	GetFace(imageData image.Image) string
+	GetFace(imageData image.Image) (string, error)
 }
 
 type FaceDetect struct {}
 
-func(fd FaceDetect) GetFace(imageData image.Image) string {
-	dataPath := "./vendor/data/haarcascade_frontalface_default.xml"
+func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
+	dataPath := "/go/src/go-open-cv/resource/haarcascade_frontalface_default.xml"
 	// prepare image matrix
 	img, err := gocv.ImageToMatRGB(imageData)
 	if err != nil {
-		panic(errors.New(fmt.Sprintf("gocv ImageToMatRGB error: %s", err)))
+		fmt.Errorf("gocv ImageToMatRGB error: %s", err)
+		return "", err
 	}
 	defer img.Close()
 
@@ -32,11 +35,10 @@ func(fd FaceDetect) GetFace(imageData image.Image) string {
 	defer classifier.Close()
 
 	if !classifier.Load(dataPath) {
-		fmt.Println("Error reading cascade file:", dataPath)
-		return ""
+		fmt.Errorf("error reading cascade file: %s", dataPath)
+		return "", err
 	}
 
-	// Start cut image
 	// detect faces
 	rects := classifier.DetectMultiScale(img)
 	fmt.Printf("found %d faces\n", len(rects))
@@ -46,8 +48,42 @@ func(fd FaceDetect) GetFace(imageData image.Image) string {
 		gocv.Rectangle(&img, r, blue, 3)
 	}
 
-	//FIXME: save image in resource
-	imgPath := "/resource/face.jpg"
+	// TODO: Start cut image
 
-	return imgPath
+	// generate image name
+	//imgPath := "/go/src/go-open-cv/resource/face.jpg"
+	imgName := "faceyFace.png"
+	fileName := path.Join("/go/src/go-open-cv/resource/result/", imgName)
+
+	fmt.Println("save image file at:", fileName)
+
+	// create image
+	imageResult, err := img.ToImage()
+	if err != nil {
+		fmt.Errorf("error mat to image: %s", err)
+		return "", err
+	}
+	imgPath, err := CreateImageFileWithPath(imageResult, fileName)
+	if err != nil {
+		fmt.Errorf("CreateImageFileWithPath: %s", err)
+		return "", err
+	}
+
+	return imgPath, nil
+}
+
+func CreateImageFileWithPath(img image.Image, fileName string) (string, error) {
+	file, err := os.Create(fileName)
+	if err != nil {
+		fmt.Errorf("[CreateImageFileWithPath] create file error: %s", err)
+		return "", err
+	}
+	defer file.Close()
+
+	if err := png.Encode(file, img); err != nil {
+		fmt.Errorf("[CreateImageFileWithPath] png encode error: %s", err)
+		return "", err
+	}
+
+	return fileName, nil
 }

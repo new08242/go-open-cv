@@ -2,30 +2,34 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"fmt"
 	"image"
+	_ "image/png"
+	_ "image/jpeg"
+	_ "image/gif"
 	"errors"
 
 	"go-open-cv/facedetection"
 )
 
 func GetFaceFromPictureHandler(w http.ResponseWriter, r *http.Request) {
-	imagePath := "/resource/face.jpg"
-	// open image
-	fileImage, err := os.Open(imagePath)
+	imgFile, _, err := r.FormFile("image")
 	if err != nil {
-		panic(errors.New(fmt.Sprintf("open file image error: %s", err)))
+		panic(errors.New(fmt.Sprintf("get image from request error: %s", err)))
 	}
-	defer fileImage.Close()
+	defer imgFile.Close()
 
-	imageDecode, _, err := image.Decode(fileImage)
+	imageDecoded, _, err := image.Decode(imgFile)
 	if err != nil {
-		panic(errors.New(fmt.Sprintf("decode image error: %s", err)))
+		panic(errors.New(fmt.Sprintf("png decode image error: %s", err)))
 	}
-	defer fileImage.Close()
 
 	fd := facedetection.FaceDetect{}
-	fp := fd.GetFace(imageDecode)
+	fp, err := fd.GetFace(imageDecoded)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(fmt.Sprintf(`{ error: "%s" }`, err.Error())))
+		return
+	}
 	http.ServeFile(w, r, fp)
 }
