@@ -3,12 +3,13 @@ package facedetection
 import (
 	"image"
 	"fmt"
-	"image/color"
 	"os"
 	"image/png"
 	"path"
 
 	"gocv.io/x/gocv"
+	"github.com/google/uuid"
+	"github.com/oliamb/cutter"
 )
 
 type FaceDetector interface {
@@ -19,8 +20,16 @@ type FaceDetect struct {}
 
 func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	dataPath := "/go/src/go-open-cv/resource/haarcascade_frontalface_default.xml"
+
+	// process image before detect face
+	imgResize, err := ProcessResizeImage(imageData, 50000, 40000)
+	if err != nil {
+		fmt.Errorf("ProcessResizeImage error: %s", err)
+		return "", err
+	}
+
 	// prepare image matrix
-	img, err := gocv.ImageToMatRGB(imageData)
+	img, err := gocv.ImageToMatRGB(imgResize)
 	if err != nil {
 		fmt.Errorf("gocv ImageToMatRGB error: %s", err)
 		return "", err
@@ -28,7 +37,7 @@ func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	defer img.Close()
 
 	// color for the rect when faces detected
-	blue := color.RGBA{0, 0, 255, 0}
+	//blue := color.RGBA{0, 0, 255, 0}
 
 	// load classifier to recognize faces
 	classifier := gocv.NewCascadeClassifier()
@@ -43,27 +52,39 @@ func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	rects := classifier.DetectMultiScale(img)
 	fmt.Printf("found %d faces\n", len(rects))
 
+	rect := image.Rectangle{}
 	// draw a rectangle around each face on the original image
 	for _, r := range rects {
-		gocv.Rectangle(&img, r, blue, 3)
+		//gocv.Rectangle(&img, r, blue, 3)
+		rect = r
 	}
 
 	// TODO: Start cut image
+	//imageResult, err := img.ToImage()
+	//if err != nil {
+	//	fmt.Errorf("error mat to image: %s", err)
+	//	return "", err
+	//}
+	croppedImg, err := cutter.Crop(imgResize, cutter.Config{
+		Width: rect.Dx(),
+		Height: rect.Dy(),
+		Anchor: image.Point{rect.Min.X, rect.Min.Y},
+		Mode:   cutter.TopLeft,
+	})
+	if err != nil {
+		fmt.Errorf("crop image error: %s", err)
+		return "", err
+	}
 
 	// generate image name
-	//imgPath := "/go/src/go-open-cv/resource/face.jpg"
-	imgName := "faceyFace.png"
+	uid := uuid.New()
+	imgName := fmt.Sprintf("%s.png", uid)
 	fileName := path.Join("/go/src/go-open-cv/resource/result/", imgName)
 
 	fmt.Println("save image file at:", fileName)
 
 	// create image
-	imageResult, err := img.ToImage()
-	if err != nil {
-		fmt.Errorf("error mat to image: %s", err)
-		return "", err
-	}
-	imgPath, err := CreateImageFileWithPath(imageResult, fileName)
+	imgPath, err := CreateImageFileWithPath(croppedImg, fileName)
 	if err != nil {
 		fmt.Errorf("CreateImageFileWithPath: %s", err)
 		return "", err
@@ -86,4 +107,42 @@ func CreateImageFileWithPath(img image.Image, fileName string) (string, error) {
 	}
 
 	return fileName, nil
+}
+
+func ProcessResizeImage(img image.Image, maxRes, minRes int) (image.Image, error) {
+	rect := img.Bounds()
+	width := rect.Dx()
+	height := rect.Dy()
+	resolution := width * height
+
+	if resolution <= maxRes && resolution > minRes {
+		// ok resolution
+		return img, nil
+	}
+
+	matSrc, err := gocv.ImageToMatRGB(img)
+	if err != nil {
+		fmt.Errorf("gocv ImageToMatRGB error: %s", err)
+		return nil, err
+	}
+	defer matSrc.Close()
+
+	matDst := matSrc
+	defer matDst.Close()
+
+	// not ok resolution too big
+	if resolution > maxRes {
+		gocv.Resize(matSrc, &matDst, rect.Size(), 0, 0, gocv.InterpolationArea)
+
+	} else if resolution <= minRes { // not ok resolution too small
+		gocv.Resize(matSrc, &matDst, rect.Size(), 0, 0, gocv.InterpolationArea)
+	}
+
+	imgResize, err := matDst.ToImage()
+	if err != nil {
+		fmt.Errorf("mat to image error: %s", err)
+		return nil, err
+	}
+
+	return imgResize, nil
 }
