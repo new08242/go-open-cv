@@ -115,6 +115,8 @@ func ProcessResizeImage(img image.Image, maxRes, minRes int) (image.Image, error
 	height := rect.Dy()
 	resolution := width * height
 
+	fmt.Println("image resolution:", resolution)
+
 	if resolution <= maxRes && resolution > minRes {
 		// ok resolution
 		return img, nil
@@ -127,22 +129,23 @@ func ProcessResizeImage(img image.Image, maxRes, minRes int) (image.Image, error
 	}
 	defer matSrc.Close()
 
-	matDst := matSrc
-	defer matDst.Close()
-
 	// not ok resolution too big
-	if resolution > maxRes {
-		gocv.Resize(matSrc, &matDst, rect.Size(), 0, 0, gocv.InterpolationArea)
+	//if resolution > maxRes {
+	gocv.Resize(matSrc, &matSrc, image.Point{}, 300, 150, gocv.InterpolationArea)
 
-	} else if resolution <= minRes { // not ok resolution too small
-		gocv.Resize(matSrc, &matDst, rect.Size(), 0, 0, gocv.InterpolationArea)
-	}
+	//} else if resolution <= minRes { // not ok resolution too small
+	//	gocv.Resize(matSrc, &matSrc, image.Point{}, 0, 0, gocv.InterpolationArea)
+	//}
 
-	imgResize, err := matDst.ToImage()
+	imgResize, err := matSrc.ToImage()
 	if err != nil {
 		fmt.Errorf("mat to image error: %s", err)
 		return nil, err
 	}
+
+	resolution = imgResize.Bounds().Dx() * imgResize.Bounds().Dy()
+
+	fmt.Println("image resolution after resize:", resolution)
 
 	return imgResize, nil
 }
