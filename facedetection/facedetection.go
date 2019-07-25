@@ -25,22 +25,21 @@ func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	dataModelPath := "/go/src/go-open-cv/resource/haarcascade_frontalface_default.xml"
 
 	// process image before detect face
-	imgResize, err := ProcessResizeImage(imageData, 80000, 40000)
+	imgResize, err := ProcessResizeImage(imageData, 80000, 60000)
 	if err != nil {
 		fmt.Errorf("ProcessResizeImage error: %s", err)
 		return "", err
 	}
 
 	// prepare image matrix
-	img, err := gocv.ImageToMatRGB(*imgResize)
+	img, err := gocv.ImageToMatRGB(imgResize)
 	if err != nil {
 		fmt.Errorf("gocv ImageToMatRGB error: %s", err)
 		return "", err
 	}
 	defer img.Close()
 
-	// color for the rect when faces detected
-	//blue := color.RGBA{0, 0, 255, 0}
+	//gocv.FindContours()
 
 	// load classifier to recognize faces
 	classifier := gocv.NewCascadeClassifier()
@@ -56,30 +55,23 @@ func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	fmt.Printf("found %d faces\n", len(rects))
 
 	rect := image.Rectangle{}
-	// draw a rectangle around each face on the original image
-	//for _, r := range rects {
-		//gocv.Rectangle(&img, r, blue, 3)
-	//}
 
 	if len(rects) != 1 {
 		return "", errors.New(fmt.Sprintf("not found face or found more than one face, len found: %d", len(rects)))
 	}
 	rect = rects[0]
 
+	fmt.Println("face size:", rect.Dx() * rect.Dy(), "width:", rect.Dx(), "height:", rect.Dy())
+
 	// TODO: Start cut image
-	//imageResult, err := img.ToImage()
-	//if err != nil {
-	//	fmt.Errorf("error mat to image: %s", err)
-	//	return "", err
-	//}
-	croppedImg, err := cutter.Crop(*imgResize, cutter.Config{
-		Width: rect.Dx() + 40,
-		Height: rect.Dy() + 40,
+	croppedImg, err := cutter.Crop(imgResize, cutter.Config{
+		Width: int(math.Round(float64(rect.Dx()) * 1.8)),
+		Height: int(math.Round(float64(rect.Dy()) * 2.2)),
 		Anchor: image.Point{
-			X: rect.Min.X - 20,
-			Y: rect.Min.Y - 20,
+			X: int(math.Round(float64(rect.Min.X) - (float64(rect.Dx()) * 0.35))),
+			Y: int(math.Round(float64(rect.Min.Y) - (float64(rect.Dy()) * 0.4))),
 		},
-		Mode:   cutter.TopLeft,
+		Mode: cutter.TopLeft,
 	})
 	if err != nil {
 		fmt.Errorf("crop image error: %s", err)
@@ -92,7 +84,7 @@ func(fd FaceDetect) GetFace(imageData image.Image) (string, error) {
 	fileName := path.Join("/go/src/go-open-cv/resource/result/", imgName)
 
 	fmt.Println("save image file at:", fileName)
-
+	fmt.Println("result image width:", croppedImg.Bounds().Dx(), "height:", croppedImg.Bounds().Dy(), "size:", croppedImg.Bounds().Dy() * croppedImg.Bounds().Dx())
 	// create image
 	imgPath, err := CreateImageFileWithPath(croppedImg, fileName)
 	if err != nil {
@@ -119,7 +111,7 @@ func CreateImageFileWithPath(img image.Image, fileName string) (string, error) {
 	return fileName, nil
 }
 
-func ProcessResizeImage(img image.Image, maxRes, minRes int) (*image.Image, error) {
+func ProcessResizeImage(img image.Image, maxRes, minRes int) (image.Image, error) {
 	rect := img.Bounds()
 	width := rect.Dx()
 	height := rect.Dy()
@@ -130,7 +122,7 @@ func ProcessResizeImage(img image.Image, maxRes, minRes int) (*image.Image, erro
 
 	if resolution <= maxRes && resolution > minRes {
 		// ok resolution
-		return &img, nil
+		return img, nil
 	}
 
 	matSrc, err := gocv.ImageToMatRGB(img)
@@ -154,24 +146,10 @@ func ProcessResizeImage(img image.Image, maxRes, minRes int) (*image.Image, erro
 	widthReSize = int(math.Round(imgScale * float64(heightReSize)))
 
 	imgResize := resize.Resize(uint(widthReSize), uint(heightReSize), img, resize.Lanczos3)
-
 	fmt.Println("new image height:", heightReSize, "width:", widthReSize)
 
-	//gocv.Resize(matSrc, &matSrc, image.Point{}, scaleX, scaleY, gocv.InterpolationArea)
-
-	//} else if resolution <= minRes { // not ok resolution too small
-	//	gocv.Resize(matSrc, &matSrc, image.Point{}, 0, 0, gocv.InterpolationArea)
-	//}
-
-	//imgResize, err := matSrc.ToImage()
-	//if err != nil {
-	//	fmt.Errorf("mat to image error: %s", err)
-	//	return nil, err
-	//}
-
 	resolution = imgResize.Bounds().Dx() * imgResize.Bounds().Dy()
-
 	fmt.Println("image resolution after resize:", resolution)
 
-	return &imgResize, nil
+	return imgResize, nil
 }

@@ -28,7 +28,7 @@ func GetFaceFromPictureHandler(w http.ResponseWriter, r *http.Request) {
 	fp, err := fd.GetFace(imageDecoded)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(fmt.Sprintf(`{ error: "%s" }`, err.Error())))
+		w.Write([]byte(fmt.Sprintf(`{ "error": "%s" }`, err.Error())))
 		return
 	}
 	http.ServeFile(w, r, fp)
